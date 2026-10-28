@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b1320">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net blob: data:; object-src 'none'; base-uri 'none'; form-action 'none';">
+<title>Malzeme Kabul ve Sayım Sistemi</title>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@1.3.4/dist/iife/reader/index.js" crossorigin="anonymous"></script>
+<style>
+:root {
+  --bg: #0b1320;
+  --panel: #111d30;
+  --panel2: #17263f;
+  --line: #263a57;
+  --text: #eef4fc;
+  --muted: #8ea3bf;
+  --blue: #2563eb;
+  --green: #059669;
+  --orange: #d97706;
+  --red: #dc2626;
+  --radius: 12px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0;
+  min-height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  overflow-x: hidden;
+}
+.app { max-width: 1440px; margin: auto; padding: 12px; }
+
+.header {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--blue);
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+.brand h1 { margin: 0; font-size: 16px; font-weight: 700; }
+.brand p { margin: 2px 0 0; color: var(--muted); font-size: 11.5px; }
+.header-stats { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.head-chip {
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--muted);
+  padding: 6px 11px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.head-chip b { color: #fff; font-family: Consolas, monospace; }
+
+.progress-wrap {
+  margin-top: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 9px 14px;
+  display: none;
+  align-items: center;
+  gap: 12px;
+}
+.progress-wrap.show { display: flex; }
+.progress-bar-bg {
+  flex: 1;
+  height: 10px;
+  background: #08101c;
+  border-radius: 99px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--green);
+  transition: width 0.2s ease;
+}
+.progress-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+  white-space: nowrap;
+  font-family: Consolas, monospace;
+}
+
+.grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1.25fr 0.75fr;
+  gap: 12px;
+}
+@media (max-width: 1020px) { .grid { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.card-head {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.card-head h2 {
+  margin: 0;
+  font-size: 12.5px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+.card-body { padding: 14px; }
+
+.cam-panel {
+  display: none;
+  margin-bottom: 12px;
+  border: 2px solid var(--blue);
+  border-radius: var(--radius);
+  background: #050a12;
+  overflow: hidden;
+  position: relative;
+}
+.cam-panel.open { display: block; }
+.cam-panel.locked-ok { border-color: var(--green); }
+.cam-panel.locked-err { border-color: var(--red); }
+
+.cam-topbar {
+  padding: 8px 12px;
+  background: #0c1626;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+}
+.telemetry-pill {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: #93c5fd;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+}
+
+.cam-viewport {
+  position: relative;
+  width: 100%;
+  height: 290px;
+  background: #000;
+  overflow: hidden;
+}
+#camVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
+#arCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
+
+.label-guide {
+  position: absolute;
+  inset: 6% 5%;
+  border: 2px solid rgba(59, 130, 246, 0.7);
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px;
+}
+.cam-panel.locked-ok .label-guide { border-color: var(--green); }
+.cam-panel.locked-err .label-guide { border-color: var(--red); }
+.guide-banner {
+  font-size: 10.5px;
+  background: rgba(8, 15, 28, 0.9);
+  color: #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 4px;
+  align-self: center;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  text-align: center;
+}
+
+.combo-hud {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 8px 10px;
+  background: #091220;
+  border-top: 1px solid var(--line);
+}
+.hud-slot {
+  background: #101f36;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.hud-slot.locked { background: rgba(5, 150, 105, 0.2); border-color: var(--green); }
+.hud-slot.verifying { background: rgba(217, 119, 6, 0.2); border-color: var(--orange); }
+.hud-slot.dup { background: rgba(220, 38, 38, 0.25); border-color: var(--red); }
+.hud-slot small {
+  display: block;
+  font-size: 9.5px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.hud-slot b {
+  display: block;
+  margin-top: 3px;
+  font-family: Consolas, monospace;
+  font-size: 13px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hud-slot.locked b { color: #6ee7b7; }
+.hud-slot.verifying b { color: #fde68a; }
+.hud-slot.dup b { color: #fca5a5; }
+
+.cam-controls {
+  padding: 8px 10px;
+  background: #0c1626;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+.zoom-slider { flex: 1; accent-color: var(--blue); }
+
+.scan-display {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #0d1829;
+  padding: 16px;
+  min-height: 155px;
+  text-align: center;
+}
+.scan-display.success { border-color: var(--green); background: rgba(5, 150, 105, 0.08); }
+.scan-display.error { border-color: var(--red); background: rgba(220, 38, 38, 0.14); animation: shake 0.3s ease; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  50% { transform: translateX(8px); }
+  75% { transform: translateX(-5px); }
+}
+.display-title { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; }
+.scan-display.error .display-title { color: #fca5a5; }
+.big-reference { margin-top: 6px; font-family: Consolas, monospace; font-size: clamp(22px, 4.5vw, 38px); color: #fff; font-weight: 700; }
+.part-desc-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: #bfdbfe;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-family: Consolas, monospace;
+}
+.big-quantity { margin-top: 6px; font-family: Consolas, monospace; font-size: clamp(19px, 3.6vw, 28px); font-weight: 700; color: #6ee7b7; }
+.scan-display.error .big-quantity { color: #fca5a5; }
+.big-serial { margin-top: 4px; font-family: Consolas, monospace; font-size: 12px; color: #cbd5e1; }
+.big-total { margin-top: 5px; color: var(--muted); font-size: 12px; }
+
+.input-row { display: flex; gap: 8px; margin-top: 10px; }
+.scan-input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #08101c;
+  color: #fff;
+  font-size: 15px;
+  font-family: Consolas, monospace;
+  text-align: center;
+  outline: none;
+}
+.scan-input:focus { border-color: var(--blue); }
+.cam-toggle-btn {
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  background: var(--green);
+}
+.cam-toggle-btn.active { background: var(--red); }
+
+.message {
+  margin-top: 10px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  line-height: 1.4;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.message.info { background: var(--panel2); color: #cbd5e1; border: 1px solid var(--line); }
+.message.ok { background: rgba(5, 150, 105, 0.15); color: #a7f3d0; border: 1px solid rgba(5, 150, 105, 0.4); }
+.message.warn { background: rgba(217, 119, 6, 0.15); color: #fde68a; border: 1px solid rgba(217, 119, 6, 0.4); }
+.message.err { background: rgba(220, 38, 38, 0.2); color: #fecaca; border: 1px solid rgba(220, 38, 38, 0.5); }
+
+button {
+  border: 0;
+  border-radius: 7px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 700;
+  color: #fff;
+  background: #243854;
+  font-size: 12px;
+}
+button:hover { filter: brightness(1.08); }
+.btn-green { background: var(--green); }
+.btn-red { background: var(--red); }
+.btn-orange { background: var(--orange); }
+.btn-dark { background: #1e2f47; border: 1px solid var(--line); }
+.btn-blue { background: var(--blue); }
+.actions { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+
+.log-box {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #091220;
+  overflow: hidden;
+}
+.log-head {
+  padding: 8px 12px;
+  background: var(--panel2);
+  font-size: 11px;
+  font-weight: 700;
+  color: #cbd5e1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.log-list { max-height: 140px; overflow-y: auto; }
+.log-item {
+  padding: 7px 12px;
+  border-bottom: 1px solid #16243b;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  font-family: Consolas, monospace;
+  gap: 6px;
+}
+.log-del {
+  background: rgba(220, 38, 38, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10.5px;
+}
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat {
+  background: #091220;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+.stat label { display: block; font-size: 10px; color: var(--muted); text-transform: uppercase; font-weight: 700; }
+.stat b { display: block; margin-top: 4px; font-family: Consolas, monospace; font-size: 18px; }
+.green { color: #6ee7b7; }
+.red { color: #fca5a5; }
+.orange { color: #fcd34d; }
+.blue { color: #93c5fd; }
+
+.report-box {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: #091220;
+  border-radius: 8px;
+}
+.report-box h3 { margin: 0 0 8px; font-size: 12px; color: #cbd5e1; text-transform: uppercase; }
+.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+.note-input {
+  width: 100%;
+  background: #0f1c30;
+  color: #fff;
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.table-card { margin-top: 12px; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
+.search {
+  flex: 1;
+  min-width: 180px;
+  padding: 8px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #091220;
+  color: #fff;
+  outline: none;
+}
+.check { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; cursor: pointer; }
+.table-wrap { max-height: 460px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 8px 10px; border-bottom: 1px solid #1e304a; text-align: left; font-size: 12px; }
+th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--panel2);
+  color: #cbd5e1;
+  font-size: 10.5px;
+  text-transform: uppercase;
+}
+td.ref { font-family: Consolas, monospace; font-weight: 700; }
+td.qty-list { font-family: Consolas, monospace; color: #cbd5e1; font-size: 11.5px; }
+td.number { font-family: Consolas, monospace; font-weight: 700; text-align: right; }
+tr.done td { background: rgba(5, 150, 105, 0.05); }
+.edit-plan { color: #93c5fd; cursor: pointer; font-family: Consolas, monospace; }
+.status { display: inline-block; border-radius: 4px; padding: 3px 7px; font-size: 10px; font-weight: 700; }
+.status.empty { background: #1e304a; color: #94a3b8; }
+.status.ok { background: rgba(5, 150, 105, 0.2); color: #6ee7b7; }
+.status.low { background: rgba(220, 38, 38, 0.2); color: #fca5a5; }
+.status.high { background: rgba(217, 119, 6, 0.2); color: #fcd34d; }
+
+.toast-area { position: fixed; right: 12px; bottom: 12px; z-index: 80; }
+.toast {
+  margin-top: 6px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: #17263f;
+  border: 1px solid #314b70;
+  color: #fff;
+  font-size: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+.toast.bad { background: #5c181d; border-color: #b91c1c; color: #fecaca; font-weight: 700; }
+
+#flash { position: fixed; inset: 0; background: rgba(220, 38, 38, 0.45); z-index: 90; opacity: 0; pointer-events: none; }
+#flash.on { animation: flashAnim 0.45s ease; }
+@keyframes flashAnim { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+
+.preview-overlay, .modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 8, 18, 0.85);
+  z-index: 70;
+  display: none;
+  overflow: auto;
+  padding: 16px 12px;
+}
+.preview-overlay.open, .modal-overlay.open { display: block; }
+.preview-bar { max-width: 900px; margin: 0 auto 10px; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.preview-paper { max-width: 900px; margin: 0 auto; background: #fff; color: #000; padding: 22px; border-radius: 4px; }
+.modal-box {
+  max-width: 580px;
+  margin: 30px auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+}
+.modal-box h3 { margin: 0 0 8px; color: #fff; font-size: 15px; }
+.modal-textarea {
+  width: 100%;
+  height: 180px;
+  background: #08101c;
+  color: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  font-family: Consolas, monospace;
+  font-size: 12.5px;
+  outline: none;
+}
+
+#printReport { display: none; }
+.report {
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000;
+  line-height: 1.4;
+  font-size: 11px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.report .rep-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 2.5px solid #000;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+.report .rep-top h1 { margin: 0; font-size: 16px; font-weight: 800; }
+.report .rep-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 11px; margin-bottom: 7px; font-weight: 700; }
+.report .rep-sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 11px;
+  margin: 0 0 10px;
+  padding: 6px 10px;
+  background: #efefef;
+  border: 1.5px solid #000;
+}
+.report table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.report th, .report td { border: 1.5px solid #000; padding: 6px 7px; font-size: 10.5px; word-break: break-word; }
+.report th { background: #dcdcdc; font-weight: 800; text-transform: uppercase; }
+.report td.num { text-align: right; font-family: Consolas, monospace; font-weight: 700; }
+.report td.mono { font-family: Consolas, monospace; font-weight: 700; }
+.report tr.totals td { font-weight: 800; background: #dcdcdc; }
+.report .sign { display: flex; gap: 30px; margin-top: 24px; font-size: 11px; font-weight: 700; }
+.report .sign div { flex: 1; border-top: 1.5px solid #000; padding-top: 5px; text-align: center; }
+
+@page { size: A4 portrait; margin: 9mm 7mm 10mm; }
+@media print {
+  html, body { background: #fff !important; color: #000 !important; }
+  .app, .toast-area, .preview-overlay, .modal-overlay, #flash { display: none !important; }
+  #printReport { display: block !important; }
+}
+</style>
+</head>
+<body>
+<div id="flash"></div>
+<div class="app">
+  <header class="header">
+    <div class="brand">
+      <div class="logo">MKS</div>
+      <div>
+        <h1>Malzeme Kabul ve Sayım Sistemi</h1>
+        <p>Çoklu Barkod Okuma ve Tekil Koli Kontrol Modülü</p>
+      </div>
+    </div>
+    <div class="header-stats">
+      <div class="head-chip">Ref: <b id="headRefs">0</b></div>
+      <div class="head-chip">Koli: <b id="headBoxes">0</b></div>
+      <div class="head-chip">Toplam Adet: <b id="headQty">0</b></div>
+      <div class="head-chip" id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <div class="progress-wrap" id="progressWrap">
+    <span style="font-size:11.5px;font-weight:700;color:#93c5fd">PLAN DURUMU:</span>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+    <span class="progress-text" id="progressText">%0 (0 / 0)</span>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="card-head">
+        <h2>Okutma Terminali</h2>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="btn-dark" onclick="testMobileSound()">Ses Test</button>
+          <button class="btn-dark" onclick="testRejectSound()">Alarm Test</button>
+          <button class="btn-dark" onclick="toggleVoice()" id="voiceButton">Sesli Okuma: Açık</button>
+          <button class="btn-dark" onclick="cycleVolume()" id="soundButton">Ses: Yüksek</button>
+        </div>
+      </div>
+      <div class="card-body">
+
+        <div class="cam-panel" id="camPanel">
+          <div class="cam-topbar">
+            <span class="telemetry-pill" id="visionTelemetry">Tarayıcı Hazır</span>
+            <div style="display:flex;gap:5px">
+              <button class="btn-dark" id="dspBtn" onclick="toggleDspMode()" style="padding:4px 8px">Kontrast: Oto</button>
+              <button class="btn-dark" id="torchBtn" onclick="toggleTorch()" style="padding:4px 8px;display:none">Flaş</button>
+              <button class="btn-red" onclick="stopCamera()" style="padding:4px 8px">Kapat</button>
+            </div>
+          </div>
+
+          <div class="cam-viewport">
+            <video id="camVideo" playsinline muted autoplay></video>
+            <canvas id="arCanvas"></canvas>
+            <div class="label-guide">
+              <div class="guide-banner" id="guideStatus">ETİKETİ ÇERÇEVE İÇİNE HİZALAYIN</div>
+              <div class="guide-banner">REFERANS (P) + KOLİ NO (S) + MİKTAR (Q)</div>
+            </div>
+          </div>
+
+          <div class="combo-hud">
+            <div class="hud-slot" id="slotP">
+              <small>1. REFERANS (P)</small>
+              <b id="slotPVal">Bekleniyor</b>
+            </div>
+            <div class="hud-slot" id="slotS">
+              <small>2. KOLİ NO (S)</small>
+              <b id="slotSVal">Bekleniyor</b>
+            </div>
+            <div class="hud-slot" id="slotQ">
+              <small>3. MİKTAR (Q)</small>
+              <b id="slotQVal">Bekleniyor</b>
+            </div>
+          </div>
+
+          <div class="cam-controls" id="zoomRow" style="display:none">
+            <span style="font-size:11px;color:var(--muted)">Yakınlaştırma:</span>
+            <input type="range" id="zoomSlider" class="zoom-slider" min="1" max="3" step="0.1" value="1.4" oninput="applyZoom(this.value)">
+            <b id="zoomVal" style="font-size:11px;font-family:Consolas,monospace">1.4x</b>
+          </div>
+        </div>
+
+        <div class="scan-display" id="scanDisplay">
+          <div class="display-title" id="displayTitle">BARKOD BEKLENİYOR</div>
+          <div class="big-reference" id="bigReference">—</div>
+          <div id="partDescBadge" class="part-desc-badge" style="display:none"></div>
+          <div class="big-quantity" id="bigQuantity">Hazır</div>
+          <div class="big-serial" id="bigSerial">Son Koli No: —</div>
+          <div class="big-total" id="bigTotal">El terminali veya kamera ile okutabilirsiniz</div>
+        </div>
+
+        <div class="input-row">
+          <input id="scanInput" class="scan-input" autocomplete="off" placeholder="Barkod okutun veya manuel girin...">
+          <button class="cam-toggle-btn" id="camToggleBtn" onclick="toggleCamera()">Kamera Aç</button>
+        </div>
+
+        <div class="message info" id="message">
+          Etiket üzerindeki <b>Referans (P)</b>, <b>Koli Seri No (S)</b> ve <b>Miktar (Q)</b> barkodları birlikte okunur. Mükerrer koli okutmaları otomatik engellenir.
+        </div>
+
+        <div class="actions">
+          <button class="btn-blue" onclick="openBulkModal()">Plan Yükle</button>
+          <button class="btn-green" onclick="exportExcel()">Excel İndir</button>
+          <button class="btn-blue" onclick="shareExcelMobile()">Paylaş</button>
+          <button class="btn-dark" onclick="printReport()">Yazdır</button>
+          <button class="btn-dark" onclick="undoLast()">Geri Al</button>
+          <button class="btn-red" onclick="resetAll()">Sıfırla</button>
+        </div>
+
+        <div class="log-box">
+          <div class="log-head">
+            <span>SON OKUTULAN KOLİLER</span>
+            <span id="logCount" style="color:var(--muted)">0 kayıt</span>
+          </div>
+          <div class="log-list" id="logList"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Sayım Özeti ve Belge Bilgileri</h2>
+        <div style="display:flex;gap:5px">
+          <button class="btn-dark" onclick="exportBackup()" style="padding:5px 8px;font-size:11px">Yedek İndir</button>
+          <button class="btn-dark" onclick="document.getElementById('backupFile').click()" style="padding:5px 8px;font-size:11px">Yedek Yükle</button>
+          <input type="file" id="backupFile" accept=".json" style="display:none" onchange="importBackup(event)">
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="stats">
+          <div class="stat"><label>Sayılan Adet</label><b id="statCounted" class="blue">0</b></div>
+          <div class="stat"><label>Planlanan</label><b id="statPlanned">—</b></div>
+          <div class="stat"><label>Net Fark</label><b id="statDiff">—</b></div>
+          <div class="stat"><label>Okutulan Ref</label><b id="statFilled" class="green">0</b></div>
+          <div class="stat"><label>Toplam Koli</label><b id="statBoxes" class="blue">0</b></div>
+          <div class="stat"><label>Mükerrer Red</label><b id="statDupBlocked" class="red">0</b></div>
+        </div>
+
+        <div class="report-box">
+          <h3>Sevkiyat / İrsaliye Bilgileri</h3>
+          <div class="meta-grid">
+            <input id="waybillInput" class="note-input" placeholder="İrsaliye / ASN No">
+            <input id="operatorInput" class="note-input" placeholder="Sayım Yapan Personel">
+          </div>
+          <div class="meta-grid">
+            <select id="shiftInput" class="note-input">
+              <option value="">Vardiya Seçin</option>
+              <option value="00:00 - 08:00">00:00 - 08:00</option>
+              <option value="08:00 - 16:00">08:00 - 16:00</option>
+              <option value="16:00 - 24:00">16:00 - 24:00</option>
+            </select>
+            <input id="noteInput" class="note-input" placeholder="Araç Plaka / Açıklama">
+          </div>
+          <label class="check" style="margin-top:8px">
+            <input type="checkbox" id="includeEmpty"> İşlem görmeyen referansları rapora dahil et
+          </label>
+          <div class="actions" style="margin-top:10px">
+            <button class="btn-dark" onclick="openPreview()">Rapor Önizleme</button>
+            <button class="btn-green" onclick="exportExcel()">Excel İndir</button>
+            <button class="btn-blue" onclick="shareExcelMobile()">Rapor Paylaş</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card table-card">
+    <div class="card-head">
+      <h2>Referans Listesi ve Sayım Tablosu</h2>
+      <div id="tableInfo" style="font-size:12px;color:var(--muted)">0 referans</div>
+    </div>
+    <div class="card-body">
+      <div class="toolbar">
+        <input class="search" id="searchInput" placeholder="Referans ara..." oninput="render()">
+        <label class="check"><input type="checkbox" id="showEmpty" onchange="render()"> Boş referansları göster</label>
+        <label class="check"><input type="checkbox" id="onlyDifference" onchange="render()"> Sadece fark olanlar</label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:45px">#</th>
+              <th style="width:160px">Referans</th>
+              <th>Kutu Miktarları</th>
+              <th style="width:85px;text-align:right">Koli</th>
+              <th style="width:95px;text-align:right">Sayılan</th>
+              <th style="width:95px">Planlanan</th>
+              <th style="width:85px;text-align:right">Fark</th>
+              <th style="width:95px">Durum</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="modal-overlay" id="bulkModal">
+  <div class="modal-box">
+    <h3>Toplu Plan Listesi Yükle</h3>
+    <textarea id="bulkTextarea" class="modal-textarea" placeholder="7616247-G631  120&#10;7616244-G631  180"></textarea>
+    <div class="actions" style="justify-content:flex-end">
+      <button class="btn-red" onclick="clearAllPlans()">Planları Temizle</button>
+      <button class="btn-dark" onclick="closeBulkModal()">Kapat</button>
+      <button class="btn-green" onclick="applyBulkPaste()">Uygula</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-area" id="toastArea"></div>
+<div class="preview-overlay" id="previewOverlay">
+  <div class="preview-bar">
+    <button class="btn-blue" onclick="printReport()">Yazdır</button>
+    <button class="btn-green" onclick="exportExcel()">Excel İndir</button>
+    <button class="btn-dark" onclick="closePreview()">Kapat</button>
+  </div>
+  <div class="preview-paper" id="previewPaper"></div>
+</div>
+<div id="printReport"></div>
+
+<script>
+"use strict";
+
+const REPORT_TITLE = "MALZEME KABUL SAYIM RAPORU";
+const MAX_QTY = 5000;
+const COMBO_WINDOW_MS = 2800;
+const POST_COMMIT_GRACE_MS = 2400;
+
+const PART_CATALOG = {
+  "7616247-G631": { desc: "K9 RB 2ND ROW 60% LH", snp: 30 },
+  "7616244-G631": { desc: "K9 FC PASS RH COMBI",  snp: 60 }
+};
+const KNOWN_VENDORS = new Set(["322674", "V322674"]);
+
+const ranges = [
+  [7616228,7616240,'G345'],[7616241,7616254,'G631'],[7616255,7616263,'G485'],[7616309,7616314,'G544'],
+  [7616264,7616268,'G485'],[7616269,7616278,'G548'],[7616279,7616282,'G630'],[7616284,7616293,'G630'],
+  [7616294,7616307,'G628'],[7616308,7616308,'G544'],[7616315,7616317,'G544']
+];
+const MASTER = [];
+ranges.forEach(([s,e,g])=>{ for(let i=s;i<=e;i++) MASTER.push(`${i}-${g}`); });
+
+const SESSION_KEY = "mks_session_data_v1";
+const VOL_KEY = "mks_volume_pref";
+const VOICE_KEY = "mks_voice_pref";
+
+function loadState(){
+  let s = null;
+  try{ s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null"); }catch(e){}
+  s = s || {};
+  return {
+    entries     : s.entries     || {},
+    serials     : s.serials     || {},
+    planned     : s.planned     || {},
+    logs        : s.logs        || [],
+    extraRefs   : s.extraRefs   || [],
+    dupBlocked  : s.dupBlocked  || 0,
+    waybill     : s.waybill     || "",
+    operator    : s.operator    || "",
+    shift       : s.shift       || "",
+    note        : s.note        || ""
+  };
+}
+let state = loadState();
+
+const committedSerialSet = new Set(Object.keys(state.serials || {}));
+Object.values(state.entries || {}).forEach(list => {
+  (list || []).forEach(item => { if(item && item.serial) committedSerialSet.add(String(item.serial)); });
+});
+
+function isSerialAlreadyUsed(serialNo){
+  const s = String(serialNo || "").trim();
+  if(!s) return true;
+  if(committedSerialSet.has(s)) return true;
+  if(state.serials && state.serials[s]) return true;
+  if(state.logs && state.logs.some(l => String(l.serial) === s)) return true;
+  return false;
+}
+
+let comboBuffer = {
+  ref: null, refAt: 0, refBox: null,
+  serial: null, serialAt: 0, serialBox: null,
+  qty: null, qtyAt: 0, qtyVerified: false,
+  pendingQtyCandidate: null, pendingQtyCount: 0
+};
+let lastCommittedSerial = null;
+let lastCommittedAt = 0;
+let lastDupAlertSerial = null;
+let lastDupAlertAt = 0;
+let ttsTimer = null;
+
+function save(){ sessionStorage.setItem(SESSION_KEY, JSON.stringify(state)); }
+function allRefs(){ return [...MASTER, ...state.extraRefs]; }
+function totalBoxes(arr){ return (arr || []).reduce((a,b)=>a + (typeof b === "object" ? b.qty : b), 0); }
+function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+const scanInput = document.getElementById("scanInput");
+const waybillInput = document.getElementById("waybillInput");
+const operatorInput = document.getElementById("operatorInput");
+const shiftInput = document.getElementById("shiftInput");
+const noteInput = document.getElementById("noteInput");
+
+const VOL_LEVELS = [
+  {key:"high", label:"Ses: Yüksek", mult:1.00},
+  {key:"mid",  label:"Ses: Orta",   mult:0.65},
+  {key:"low",  label:"Ses: Düşük",  mult:0.35},
+  {key:"off",  label:"Ses: Kapalı", mult:0.00}
+];
+let volIndex = Math.max(0, VOL_LEVELS.findIndex(v=>v.key === (localStorage.getItem(VOL_KEY)||"high")));
+let voiceEnabled = (localStorage.getItem(VOICE_KEY) ?? "1") === "1";
+function volMult(){ return VOL_LEVELS[volIndex].mult; }
+
+function buildWavDataUri(notes, sampleRate = 22050){
+  const totalDuration = notes.reduce((acc, n) => Math.max(acc, (n.delay || 0) + n.dur), 0) + 0.04;
+  const numSamples = Math.floor(sampleRate * totalDuration);
+  const samples = new Float32Array(numSamples);
+
+  notes.forEach(n => {
+    const start = Math.floor((n.delay || 0) * sampleRate);
+    const len = Math.floor(n.dur * sampleRate);
+    for(let i = 0; i < len && (start + i) < numSamples; i++){
+      const t = i / sampleRate;
+      const env = Math.min(1, i / (sampleRate * 0.005)) * Math.max(0.15, 1 - (i / len) * 0.35);
+      const phase = 2 * Math.PI * n.freq * t;
+      let s = 0;
+      if(n.type === "siren"){
+        s = (Math.sin(phase) >= 0 ? 0.75 : -0.75) + 0.25 * Math.sin(phase * 2);
+      }else if(n.type === "square"){
+        s = Math.sin(phase) >= 0 ? 0.9 : -0.9;
+      }else{
+        s = Math.sin(phase);
+      }
+      samples[start + i] += s * (n.vol || 0.85) * env;
+    }
+  });
+
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+  const writeStr = (off, str) => { for(let i=0;i<str.length;i++) view.setUint8(off+i, str.charCodeAt(i)); };
+
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, "data");
+  view.setUint32(40, numSamples * 2, true);
+
+  for(let i = 0; i < numSamples; i++){
+    const clamped = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(44 + i * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF, true);
+  }
+
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for(let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return "data:audio/wav;base64," + btoa(binary);
+}
+
+const SOUND_URIS = {
+  tick: buildWavDataUri([{freq:1450, dur:0.04, vol:0.50, type:"sine"}]),
+  ok:   buildWavDataUri([
+          {freq:980,  dur:0.08, vol:0.90, type:"square", delay:0},
+          {freq:1480, dur:0.15, vol:0.98, type:"sine",   delay:0.08}
+        ]),
+  err:  buildWavDataUri([
+          {freq:880, dur:0.13, vol:0.99, type:"siren", delay:0.00},
+          {freq:440, dur:0.13, vol:0.99, type:"siren", delay:0.14},
+          {freq:960, dur:0.13, vol:0.99, type:"siren", delay:0.28},
+          {freq:400, dur:0.22, vol:0.99, type:"siren", delay:0.42}
+        ])
+};
+
+const SOUND_BANK = {
+  tick: new Audio(SOUND_URIS.tick),
+  ok:   new Audio(SOUND_URIS.ok),
+  err:  new Audio(SOUND_URIS.err)
+};
+Object.values(SOUND_BANK).forEach(a => { a.preload = "auto"; a.playsInline = true; });
+
+let audioCtx = null, masterGain = null;
+let audioUnlocked = false;
+
+function unlockMobileAudio(){
+  try{
+    if(navigator.audioSession && navigator.audioSession.type !== "playback"){
+      navigator.audioSession.type = "playback";
+    }
+  }catch(e){}
+
+  try{
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 1;
+      masterGain.connect(audioCtx.destination);
+    }
+    if(audioCtx.state === "suspended") audioCtx.resume();
+  }catch(e){}
+
+  if(!audioUnlocked){
+    audioUnlocked = true;
+    Object.values(SOUND_BANK).forEach(a => {
+      a.muted = true;
+      a.play().then(()=>{ a.pause(); a.currentTime = 0; a.muted = false; }).catch(()=>{ a.muted = false; });
+    });
+  }
+}
+
+["touchstart", "touchend", "click", "keydown"].forEach(ev => {
+  document.addEventListener(ev, unlockMobileAudio, { passive: true });
+});
+
+function playWebAudioNotes(notes){
+  const m = volMult();
+  if(m <= 0) return;
+  try{
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 1;
+      masterGain.connect(audioCtx.destination);
+    }
+    if(audioCtx.state === "suspended") audioCtx.resume();
+    const now = audioCtx.currentTime;
+    notes.forEach(n => {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = n.type || "square";
+      const start = now + (n.delay || 0);
+      o.frequency.setValueAtTime(n.freq, start);
+      g.gain.setValueAtTime(0.001, start);
+      g.gain.exponentialRampToValueAtTime(Math.min(0.98, (n.vol || 0.85) * m), start + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.001, start + n.dur);
+      o.connect(g);
+      g.connect(masterGain);
+      o.start(start);
+      o.stop(start + n.dur + 0.01);
+    });
+  }catch(e){}
+}
+
+function playBankSound(key){
+  const m = volMult();
+  if(m <= 0) return;
+
+  try{
+    if("speechSynthesis" in window) window.speechSynthesis.cancel();
+    if(navigator.audioSession) navigator.audioSession.type = "playback";
+  }catch(e){}
+
+  try{
+    const a = SOUND_BANK[key];
+    if(a){
+      a.pause();
+      a.muted = false;
+      a.volume = Math.min(1, m);
+      a.currentTime = 0;
+      a.play().catch(()=>{});
+    }
+  }catch(e){}
+
+  if(key === "err"){
+    playWebAudioNotes([
+      {freq:880, dur:0.12, delay:0.00, type:"square",   vol:0.95},
+      {freq:440, dur:0.12, delay:0.13, type:"sawtooth", vol:0.95},
+      {freq:960, dur:0.12, delay:0.26, type:"square",   vol:0.95},
+      {freq:400, dur:0.22, delay:0.39, type:"sawtooth", vol:0.98}
+    ]);
+  }else if(key === "ok"){
+    playWebAudioNotes([
+      {freq:980,  dur:0.08, delay:0.00, type:"triangle", vol:0.80},
+      {freq:1480, dur:0.14, delay:0.08, type:"sine",     vol:0.90}
+    ]);
+  }else{
+    playWebAudioNotes([
+      {freq:1450, dur:0.04, delay:0.00, type:"sine", vol:0.45}
+    ]);
+  }
+}
+
+function vibrate(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
+function soundLockTick(){ playBankSound("tick"); }
+function soundCommitSuccess(){ vibrate([65,35,100]); playBankSound("ok"); }
+function soundDuplicateAlarm(){ vibrate([220,80,220,80,300]); playBankSound("err"); }
+
+function speakTR(text, delayMs = 300){
+  if(!voiceEnabled || !("speechSynthesis" in window)) return;
+  if(ttsTimer) clearTimeout(ttsTimer);
+  ttsTimer = setTimeout(() => {
+    try{
+      if(navigator.audioSession) navigator.audioSession.type = "playback";
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "tr-TR"; u.rate = 1.18;
+      u.volume = Math.min(1, Math.max(0.4, volMult() || 0.9));
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }, delayMs);
+}
+
+function testMobileSound(){
+  unlockMobileAudio();
+  soundCommitSuccess();
+  speakTR("Ses sistemi hazır", 320);
+  toast("Onay sesi çalındı");
+}
+
+function testRejectSound(){
+  unlockMobileAudio();
+  flashScreen();
+  soundDuplicateAlarm();
+  speakTR("Mükerrer koli uyarısı", 680);
+  toast("Alarm sesi çalındı", true);
+}
+
+function toggleVoice(){
+  unlockMobileAudio();
+  voiceEnabled = !voiceEnabled;
+  localStorage.setItem(VOICE_KEY, voiceEnabled ? "1" : "0");
+  document.getElementById("voiceButton").textContent = voiceEnabled ? "Sesli Okuma: Açık" : "Sesli Okuma: Kapalı";
+  if(voiceEnabled) speakTR("Sesli okuma aktif", 100);
+}
+
+function cycleVolume(){
+  unlockMobileAudio();
+  volIndex = (volIndex + 1) % VOL_LEVELS.length;
+  localStorage.setItem(VOL_KEY, VOL_LEVELS[volIndex].key);
+  document.getElementById("soundButton").textContent = VOL_LEVELS[volIndex].label;
+  if(volMult() > 0) soundCommitSuccess();
+}
+
+function flashScreen(){
+  const f = document.getElementById("flash");
+  f.classList.remove("on"); void f.offsetWidth; f.classList.add("on");
+  setTimeout(()=>f.classList.remove("on"),480);
+}
+
+function classifyBarcode(rawStr){
+  if(!rawStr) return null;
+  let s = String(rawStr).trim().toUpperCase().replace(/\s+/g, "");
+  if(!s) return null;
+
+  if(s === "CUSTOMER" || s.startsWith("CUST") || s.startsWith("V") || KNOWN_VENDORS.has(s) || s.includes(":") || s.includes(".202")){
+    return { type: "IGNORE", val: s };
+  }
+
+  const hasRefPrefix = /^(P|REF|C)(?=\d)/.test(s);
+  let refCandidate = s.replace(/^(P|REF|C)(?=\d)/, "").replace(/[*_/xX×–—−]/g, "-").replace(/-+/g, "-");
+  if(/^\d{7}-[A-Z]\d{3}$/.test(refCandidate)){
+    return { type: "P", val: refCandidate, highConfidence: true };
+  }
+  if(/^\d{7}[A-Z]\d{3}$/.test(refCandidate)){
+    return { type: "P", val: refCandidate.slice(0,7) + "-" + refCandidate.slice(7), highConfidence: true };
+  }
+  if(refCandidate.length >= 10 && refCandidate.length <= 12 && /^\d{7}/.test(refCandidate)){
+    const prefix7 = refCandidate.slice(0, 7);
+    const matched = MASTER.find(m => m.startsWith(prefix7));
+    if(matched && refCandidate.endsWith(matched.slice(-3))){
+      return { type: "P", val: matched, highConfidence: hasRefPrefix };
+    }
+  }
+
+  const sPrefixMatch = s.match(/^[SM](\d{8,14})$/);
+  if(sPrefixMatch){
+    return { type: "S", val: sPrefixMatch[1], highConfidence: true };
+  }
+  if(/^\d{8,12}$/.test(s)){
+    return { type: "S", val: s, highConfidence: s.startsWith("80") || s.length === 9 };
+  }
+
+  const qPrefixMatch = s.match(/^(Q|QTY|ADET)(\d{1,4})$/);
+  if(qPrefixMatch){
+    const qv = parseInt(qPrefixMatch[2], 10);
+    if(qv > 0 && qv <= MAX_QTY) return { type: "Q", val: qv, highConfidence: true };
+  }
+
+  if(/^\d{1,4}$/.test(s)){
+    const qv = parseInt(s, 10);
+    if(qv > 0 && qv <= 2500){
+      return { type: "Q", val: qv, highConfidence: false };
+    }
+  }
+
+  if(/^\d{5,7}$/.test(s)) return { type: "IGNORE", val: s };
+  return { type: "UNKNOWN", val: s };
+}
+
+function isPartialReadCollision(qVal, qBox){
+  if(qBox && comboBuffer.serialBox){
+    const dy = Math.abs(qBox.cy - comboBuffer.serialBox.cy);
+    const dx = Math.abs(qBox.cx - comboBuffer.serialBox.cx);
+    if(dy < 25 && dx < 60) return true;
+  }
+  if(qBox && comboBuffer.refBox){
+    const dy = Math.abs(qBox.cy - comboBuffer.refBox.cy);
+    if(dy < 30) return true;
+  }
+  return false;
+}
+
+function clearComboBuffer(){
+  comboBuffer = {
+    ref: null, refAt: 0, refBox: null,
+    serial: null, serialAt: 0, serialBox: null,
+    qty: null, qtyAt: 0, qtyVerified: false,
+    pendingQtyCandidate: null, pendingQtyCount: 0
+  };
+  updateHudUI();
+}
+
+function expireOldComboSlots(){
+  const now = Date.now();
+  if(comboBuffer.ref && (now - comboBuffer.refAt > COMBO_WINDOW_MS)){ comboBuffer.ref = null; comboBuffer.refBox = null; }
+  if(comboBuffer.serial && (now - comboBuffer.serialAt > COMBO_WINDOW_MS)){ comboBuffer.serial = null; comboBuffer.serialBox = null; }
+  if(comboBuffer.qty !== null && (now - comboBuffer.qtyAt > COMBO_WINDOW_MS)){
+    comboBuffer.qty = null; comboBuffer.qtyVerified = false;
+    comboBuffer.pendingQtyCandidate = null; comboBuffer.pendingQtyCount = 0;
+  }
+}
+
+function updateHudUI(dupSerialOverride = null){
+  const sP = document.getElementById("slotP"), vP = document.getElementById("slotPVal");
+  const sS = document.getElementById("slotS"), vS = document.getElementById("slotSVal");
+  const sQ = document.getElementById("slotQ"), vQ = document.getElementById("slotQVal");
+
+  if(dupSerialOverride){
+    sP.className = "hud-slot"; vP.textContent = "—";
+    sS.className = "hud-slot dup"; vS.textContent = dupSerialOverride;
+    sQ.className = "hud-slot"; vQ.textContent = "Mükerrer Koli";
+    return;
+  }
+
+  if(comboBuffer.ref){
+    sP.className = "hud-slot locked"; vP.textContent = comboBuffer.ref;
+  }else{
+    sP.className = "hud-slot"; vP.textContent = "Bekleniyor";
+  }
+
+  if(comboBuffer.serial){
+    sS.className = "hud-slot locked"; vS.textContent = comboBuffer.serial;
+  }else{
+    sS.className = "hud-slot"; vS.textContent = "Bekleniyor";
+  }
+
+  if(comboBuffer.qty !== null && comboBuffer.qtyVerified){
+    sQ.className = "hud-slot locked"; vQ.textContent = comboBuffer.qty + " ADET";
+  }else if(comboBuffer.pendingQtyCandidate !== null){
+    sQ.className = "hud-slot verifying"; vQ.textContent = comboBuffer.pendingQtyCandidate;
+  }else{
+    sQ.className = "hud-slot"; vQ.textContent = "Bekleniyor";
+  }
+}
+
+function ingestDetections(detectionObjects, isManualOrSim = false){
+  const now = Date.now();
+  expireOldComboSlots();
+  let newlyLocked = false;
+
+  for(const det of detectionObjects){
+    const raw = typeof det === "string" ? det : det.rawValue;
+    const item = classifyBarcode(raw);
+    if(item && item.type === "S"){
+      if(item.val === lastCommittedSerial && (now - lastCommittedAt < POST_COMMIT_GRACE_MS)){
+        clearComboBuffer();
+        document.getElementById("guideStatus").textContent = `${item.val} KAYDEDİLDİ — DİĞER KOLİYE GEÇİN`;
+        return;
+      }
+      if(isSerialAlreadyUsed(item.val)){
+        clearComboBuffer();
+        updateHudUI(item.val);
+        triggerDuplicateBoxAlert(item.val, state.serials[item.val]);
+        return;
+      }
+    }
+  }
+
+  for(const det of detectionObjects){
+    const raw = typeof det === "string" ? det : det.rawValue;
+    const box = (typeof det === "object" && det.box) ? {
+      x: det.box.x, y: det.box.y, w: det.box.w, h: det.box.h,
+      cx: det.box.x + det.box.w / 2, cy: det.box.y + det.box.h / 2
+    } : null;
+
+    const item = classifyBarcode(raw);
+    if(!item || item.type === "IGNORE" || item.type === "UNKNOWN") continue;
+
+    if(item.type === "P"){
+      if(comboBuffer.ref !== item.val){ comboBuffer.ref = item.val; newlyLocked = true; }
+      comboBuffer.refAt = now;
+      if(box) comboBuffer.refBox = box;
+    }
+    else if(item.type === "S"){
+      if(isSerialAlreadyUsed(item.val)){
+        clearComboBuffer();
+        return;
+      }
+      if(comboBuffer.serial !== item.val){ comboBuffer.serial = item.val; newlyLocked = true; }
+      comboBuffer.serialAt = now;
+      if(box) comboBuffer.serialBox = box;
+    }
+    else if(item.type === "Q"){
+      if(!isManualOrSim && isPartialReadCollision(item.val, box)) continue;
+
+      const catalogInfo = comboBuffer.ref ? PART_CATALOG[comboBuffer.ref] : null;
+      const matchesCatalogSnp = catalogInfo && catalogInfo.snp === item.val;
+
+      if(item.highConfidence || isManualOrSim || matchesCatalogSnp){
+        if(comboBuffer.qty !== item.val || !comboBuffer.qtyVerified) newlyLocked = true;
+        comboBuffer.qty = item.val;
+        comboBuffer.qtyAt = now;
+        comboBuffer.qtyVerified = true;
+      }else{
+        if(comboBuffer.pendingQtyCandidate === item.val){
+          comboBuffer.pendingQtyCount++;
+          if(comboBuffer.pendingQtyCount >= 2){
+            comboBuffer.qty = item.val;
+            comboBuffer.qtyAt = now;
+            comboBuffer.qtyVerified = true;
+            newlyLocked = true;
+          }
+        }else{
+          comboBuffer.pendingQtyCandidate = item.val;
+          comboBuffer.pendingQtyCount = 1;
+        }
+      }
+    }
+  }
+
+  if(newlyLocked) soundLockTick();
+  updateHudUI();
+
+  if(comboBuffer.ref && comboBuffer.serial && comboBuffer.qty !== null && comboBuffer.qtyVerified){
+    commitCompleteLabel(comboBuffer.ref, comboBuffer.serial, comboBuffer.qty);
+  }
+}
+
+function triggerDuplicateBoxAlert(serialNo, prevRecord){
+  const now = Date.now();
+  if(serialNo === lastDupAlertSerial && (now - lastDupAlertAt < 1600)){
+    return;
+  }
+  const isFirstAlertForThisBox = (serialNo !== lastDupAlertSerial) || (now - lastDupAlertAt > 4000);
+  lastDupAlertSerial = serialNo;
+  lastDupAlertAt = now;
+
+  if(isFirstAlertForThisBox){
+    state.dupBlocked = (state.dupBlocked || 0) + 1;
+    save(); render();
+  }
+
+  const camP = document.getElementById("camPanel");
+  camP.classList.remove("locked-ok"); camP.classList.add("locked-err");
+  setTimeout(()=>camP.classList.remove("locked-err"), 1100);
+
+  document.getElementById("guideStatus").textContent = `MÜKERRER KOLİ ENGELLENDİ: ${serialNo}`;
+
+  const prevRef = prevRecord ? prevRecord.ref : "Bilinmiyor";
+  const prevQty = prevRecord ? prevRecord.qty : "?";
+  const prevTime = prevRecord ? prevRecord.time : "--:--";
+
+  const d = document.getElementById("scanDisplay");
+  d.className = "scan-display error";
+  document.getElementById("displayTitle").textContent = "MÜKERRER KOLİ TESPİT EDİLDİ";
+  document.getElementById("bigReference").textContent = serialNo;
+  document.getElementById("partDescBadge").style.display = "none";
+  document.getElementById("bigQuantity").textContent = "BU KOLİ ZATEN OKUTULDU";
+  document.getElementById("bigSerial").textContent = `Önceki Kayıt: ${prevRef} (+${prevQty} Adet) - Saat: ${prevTime}`;
+  document.getElementById("bigTotal").textContent = "Mükerrer işlem reddedildi, tabloya eklenmedi.";
+
+  message(
+    `<b>MÜKERRER KOLİ UYARISI:</b> <b>${esc(serialNo)}</b> numaralı koli saat <b>${esc(prevTime)}</b> içinde <b>${esc(prevRef)} (+${prevQty} adet)</b> olarak kaydedilmiş.`,
+    "err"
+  );
+  toast(`Mükerrer Koli: ${serialNo}`, true);
+
+  flashScreen();
+  soundDuplicateAlarm();
+  speakTR("Mükerrer koli. Bu etiket zaten okutuldu.", 680);
+}
+
+function commitCompleteLabel(ref, serialNo, qty){
+  const cleanSerial = String(serialNo || "").trim();
+
+  if(!cleanSerial || isSerialAlreadyUsed(cleanSerial)){
+    clearComboBuffer();
+    return;
+  }
+
+  const now = Date.now();
+  if(!allRefs().includes(ref)){
+    state.extraRefs.push(ref);
+  }
+
+  const timeStr = new Date().toLocaleTimeString("tr-TR");
+  const entryObj = { id: now + Math.random(), ref, serial: cleanSerial, qty, time: timeStr };
+
+  committedSerialSet.add(cleanSerial);
+  (state.entries[ref] = state.entries[ref] || []).push(entryObj);
+  state.serials[cleanSerial] = { ref, qty, time: timeStr, at: now };
+  state.logs.push(entryObj);
+
+  lastCommittedSerial = cleanSerial;
+  lastCommittedAt = now;
+  clearComboBuffer();
+
+  const counted = totalBoxes(state.entries[ref]);
+  const planned = state.planned[ref];
+  const cat = PART_CATALOG[ref];
+  save(); render();
+
+  const camP = document.getElementById("camPanel");
+  camP.classList.remove("locked-err"); camP.classList.add("locked-ok");
+  setTimeout(()=>camP.classList.remove("locked-ok"), 650);
+  document.getElementById("guideStatus").textContent = `KAYDEDİLDİ: ${ref} (+${qty}) — DİĞER KOLİYE GEÇİN`;
+
+  const d = document.getElementById("scanDisplay");
+  d.className = "scan-display success";
+  document.getElementById("displayTitle").textContent = "KAYIT BAŞARILI";
+  document.getElementById("bigReference").textContent = ref;
+
+  const badge = document.getElementById("partDescBadge");
+  if(cat && cat.desc){
+    badge.style.display = "inline-block";
+    badge.textContent = `${cat.desc} (Std: ${cat.snp})`;
+  }else{
+    badge.style.display = "none";
+  }
+
+  document.getElementById("bigQuantity").textContent = `+${qty} ADET`;
+  document.getElementById("bigSerial").textContent = `Koli No: ${cleanSerial}`;
+  document.getElementById("bigTotal").textContent = `Referans Toplamı: ${counted} adet (${state.entries[ref].length} koli)`;
+
+  let msgType = "ok";
+  let msg = `<b>${esc(ref)}</b> için <b>+${qty} adet</b> eklendi. (Koli: ${esc(cleanSerial)}) · Toplam: <b>${counted}</b>`;
+  if(cat && cat.snp && qty !== cat.snp){
+    msg += `<br>Not: Standart koli içi adedi (${cat.snp}) dışında miktar (${qty}) okutuldu.`;
+    msgType = "warn";
+  }
+
+  soundCommitSuccess();
+  if(planned !== undefined){
+    const diff = counted - planned;
+    if(diff === 0){
+      msg += ` · <b>PLAN TAMAMLANDI</b>`;
+      speakTR(`${qty} eklendi. Plan tamamlandı.`, 280);
+    }else if(diff > 0){
+      msg += ` · <b>FAZLA: +${diff}</b>`;
+      speakTR(`${qty} eklendi. ${diff} adet fazla.`, 280);
+    }else{
+      msg += ` · Kalan: <b>${Math.abs(diff)}</b>`;
+      speakTR(`${qty} eklendi. Toplam ${counted}`, 280);
+    }
+  }else{
+    speakTR(`${qty} eklendi. Toplam ${counted}`, 280);
+  }
+
+  message(msg, msgType);
+  toast(`${ref} | +${qty} Adet`);
+}
+
+let cameraStream = null;
+let cameraActive = false;
+let scanLoopRunning = false;
+let nativeDetector = null;
+let activeVideoTrack = null;
+let torchOn = false;
+let dspMode = "auto";
+let frameCounter = 0;
+
+const roiCanvas = document.createElement("canvas");
+const roiCtx = roiCanvas.getContext("2d", { willReadFrequently: true });
+const subCanvas = document.createElement("canvas");
+const subCtx = subCanvas.getContext("2d", { willReadFrequently: true });
+
+async function initEngines(){
+  if("BarcodeDetector" in window){
+    try{
+      nativeDetector = new BarcodeDetector({ formats: ["code_128", "code_39", "itf", "ean_13", "qr_code"] });
+    }catch(e){}
+  }
+}
+initEngines();
+
+function toggleDspMode(){
+  const modes = ["auto", "always", "off"];
+  const labels = { auto: "Kontrast: Oto", always: "Kontrast: Yüksek", off: "Kontrast: Normal" };
+  dspMode = modes[(modes.indexOf(dspMode) + 1) % modes.length];
+  document.getElementById("dspBtn").textContent = labels[dspMode];
+}
+
+function applyHighContrastDsp(imgData){
+  const d = imgData.data;
+  const len = d.length;
+  let minL = 255, maxL = 0;
+  for(let i = 0; i < len; i += 64){
+    const l = (d[i] * 77 + d[i+1] * 150 + d[i+2] * 29) >> 8;
+    if(l < minL) minL = l;
+    if(l > maxL) maxL = l;
+  }
+  const range = Math.max(40, maxL - minL);
+  const mid = minL + range * 0.48;
+
+  for(let i = 0; i < len; i += 4){
+    const l = (d[i] * 77 + d[i+1] * 150 + d[i+2] * 29) >> 8;
+    let v = ((l - minL) * 255) / range;
+    v = v < mid ? Math.max(0, v * 0.65) : Math.min(255, v * 1.25 + 20);
+    d[i] = d[i+1] = d[i+2] = v;
+  }
+  return imgData;
+}
+
+async function toggleCamera(){
+  unlockMobileAudio();
+  if(cameraActive){ stopCamera(); return; }
+  await startCamera();
+}
+
+async function startCamera(){
+  const panel = document.getElementById("camPanel");
+  const btn = document.getElementById("camToggleBtn");
+  const video = document.getElementById("camVideo");
+
+  try{
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 60, min: 30 }
+      }
+    });
+    video.srcObject = cameraStream;
+    await video.play();
+
+    setTimeout(() => {
+      unlockMobileAudio();
+      soundLockTick();
+    }, 300);
+
+    cameraActive = true;
+    panel.classList.add("open");
+    btn.classList.add("active");
+    btn.textContent = "Kamerayı Kapat";
+
+    setupHardwareControls();
+    scanLoopRunning = true;
+    requestAnimationFrame(scanFrameLoop);
+  }catch(err){
+    message("<b>Kamera Açılamadı:</b> Kamera iznini ve güvenli bağlantıyı (https) kontrol edin.<br><small>"+esc(err)+"</small>","err");
+  }
+}
+
+function stopCamera(){
+  scanLoopRunning = false;
+  cameraActive = false;
+  torchOn = false;
+  if(cameraStream){
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  activeVideoTrack = null;
+  document.getElementById("camPanel").classList.remove("open");
+  const btn = document.getElementById("camToggleBtn");
+  btn.classList.remove("active");
+  btn.textContent = "Kamera Aç";
+  document.getElementById("torchBtn").style.display = "none";
+  document.getElementById("zoomRow").style.display = "none";
+}
+
+function setupHardwareControls(){
+  setTimeout(()=>{
+    try{
+      if(!cameraStream) return;
+      const track = cameraStream.getVideoTracks()[0];
+      if(!track) return;
+      activeVideoTrack = track;
+      const caps = track.getCapabilities ? track.getCapabilities() : {};
+      const adv = {};
+      if(caps.focusMode && caps.focusMode.includes("continuous")) adv.focusMode = "continuous";
+      if(caps.exposureMode && caps.exposureMode.includes("continuous")) adv.exposureMode = "continuous";
+
+      if(caps.zoom){
+        const zRow = document.getElementById("zoomRow");
+        const zSlider = document.getElementById("zoomSlider");
+        zRow.style.display = "flex";
+        zSlider.min = caps.zoom.min || 1;
+        zSlider.max = Math.min(caps.zoom.max || 3, 4);
+        zSlider.step = caps.zoom.step || 0.1;
+        const sweetZoom = Math.min(caps.zoom.max || 1, Math.max(caps.zoom.min || 1, 1.4));
+        zSlider.value = sweetZoom;
+        document.getElementById("zoomVal").textContent = Number(sweetZoom).toFixed(1) + "x";
+        adv.zoom = sweetZoom;
+      }
+      if(Object.keys(adv).length > 0){
+        track.applyConstraints({ advanced: [adv] }).catch(()=>{});
+      }
+      if(caps.torch) document.getElementById("torchBtn").style.display = "inline-block";
+    }catch(e){}
+  }, 450);
+}
+
+async function toggleTorch(){
+  if(!activeVideoTrack) return;
+  try{
+    torchOn = !torchOn;
+    await activeVideoTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
+    document.getElementById("torchBtn").textContent = torchOn ? "Flaş: Açık" : "Flaş";
+  }catch(e){}
+}
+
+async function applyZoom(val){
+  document.getElementById("zoomVal").textContent = Number(val).toFixed(1) + "x";
+  if(!activeVideoTrack) return;
+  try{ await activeVideoTrack.applyConstraints({ advanced: [{ zoom: Number(val) }] }); }catch(e){}
+}
+
+function drawArBoxes(detections, roiX, roiY, vw, vh){
+  const canvas = document.getElementById("arCanvas");
+  if(!canvas) return;
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if(!detections || !detections.length) return;
+
+  const scaleX = canvas.width / vw;
+  const scaleY = canvas.height / vh;
+
+  detections.forEach(d => {
+    const c = classifyBarcode(d.rawValue);
+    if(!c || c.type === "IGNORE") return;
+    const isDup = (c.type === "S" && isSerialAlreadyUsed(c.val));
+    ctx.strokeStyle = isDup ? "#dc2626" : "#059669";
+    ctx.lineWidth = 3;
+    if(d.box){
+      const gx = (roiX + d.box.x) * scaleX;
+      const gy = (roiY + d.box.y) * scaleY;
+      ctx.strokeRect(gx, gy, d.box.w * scaleX, d.box.h * scaleY);
+    }
+  });
+}
+
+let isFrameBusy = false;
+async function scanFrameLoop(){
+  if(!scanLoopRunning || !cameraActive) return;
+
+  const video = document.getElementById("camVideo");
+  if(video.readyState >= 2 && !isFrameBusy){
+    isFrameBusy = true;
+    const t0 = performance.now();
+    frameCounter++;
+
+    try{
+      const vw = video.videoWidth || 1280;
+      const vh = video.videoHeight || 720;
+
+      const roiX = Math.floor(vw * 0.06);
+      const roiY = Math.floor(vh * 0.08);
+      const roiW = Math.floor(vw * 0.88);
+      const roiH = Math.floor(vh * 0.84);
+
+      roiCanvas.width = roiW;
+      roiCanvas.height = roiH;
+      roiCtx.drawImage(video, roiX, roiY, roiW, roiH, 0, 0, roiW, roiH);
+
+      const detections = [];
+
+      if(nativeDetector){
+        try{
+          const nativeRes = await nativeDetector.detect(roiCanvas);
+          nativeRes.forEach(b => {
+            if(b.rawValue){
+              detections.push({
+                rawValue: b.rawValue,
+                box: b.boundingBox ? { x: b.boundingBox.x, y: b.boundingBox.y, w: b.boundingBox.width, h: b.boundingBox.height } : null
+              });
+            }
+          });
+        }catch(e){}
+      }
+
+      const useDspThisFrame = (dspMode === "always") || (dspMode === "auto" && (frameCounter % 2 === 1));
+      if(window.ZXingWASM && window.ZXingWASM.readBarcodesFromImageData){
+        let imgData = roiCtx.getImageData(0, 0, roiW, roiH);
+        if(useDspThisFrame) imgData = applyHighContrastDsp(imgData);
+
+        const zxingRes = await window.ZXingWASM.readBarcodesFromImageData(imgData, {
+          tryHarder: true,
+          formats: ["Code128", "Code39", "ITF"],
+          maxNumberOfSymbols: 8
+        });
+        zxingRes.forEach(z => {
+          if(z.text){
+            let box = null;
+            if(z.position && z.position.topLeft){
+              const x = Math.min(z.position.topLeft.x, z.position.bottomLeft.x);
+              const y = Math.min(z.position.topLeft.y, z.position.topRight.y);
+              const w = Math.max(z.position.topRight.x, z.position.bottomRight.x) - x;
+              const h = Math.max(z.position.bottomLeft.y, z.position.bottomRight.y) - y;
+              box = { x, y, w, h };
+            }
+            detections.push({ rawValue: z.text, box });
+          }
+        });
+
+        if((comboBuffer.ref || comboBuffer.serial) && !comboBuffer.qtyVerified){
+          const qX = Math.floor(roiW * 0.45);
+          const qY = Math.floor(roiH * 0.22);
+          const qW = Math.floor(roiW * 0.52);
+          const qH = Math.floor(roiH * 0.52);
+          subCanvas.width = Math.floor(qW * 1.75);
+          subCanvas.height = Math.floor(qH * 1.75);
+          subCtx.drawImage(roiCanvas, qX, qY, qW, qH, 0, 0, subCanvas.width, subCanvas.height);
+          const subImg = applyHighContrastDsp(subCtx.getImageData(0, 0, subCanvas.width, subCanvas.height));
+          const subRes = await window.ZXingWASM.readBarcodesFromImageData(subImg, {
+            tryHarder: true,
+            formats: ["Code128", "Code39", "ITF"],
+            maxNumberOfSymbols: 3
+          });
+          subRes.forEach(z => {
+            if(z.text) detections.push({ rawValue: z.text, box: null });
+          });
+        }
+      }
+
+      const elapsed = Math.round(performance.now() - t0);
+      document.getElementById("visionTelemetry").textContent = `${elapsed} ms | ${useDspThisFrame ? "Yüksek Kontrast" : "Standart"}`;
+
+      drawArBoxes(detections, roiX, roiY, vw, vh);
+      if(detections.length > 0){
+        ingestDetections(detections, false);
+      }else{
+        expireOldComboSlots();
+        updateHudUI();
+      }
+    }catch(e){}
+    isFrameBusy = false;
+  }
+
+  if(scanLoopRunning) setTimeout(() => requestAnimationFrame(scanFrameLoop), 25);
+}
+
+function message(text, type="info"){
+  const box = document.getElementById("message");
+  box.className = "message " + type;
+  box.innerHTML = text;
+}
+function toast(text, bad){
+  const area = document.getElementById("toastArea");
+  const item = document.createElement("div");
+  item.className = "toast" + (bad ? " bad" : "");
+  item.textContent = text;
+  area.appendChild(item);
+  setTimeout(()=>item.remove(), 2500);
+}
+
+function deleteLogItem(id){
+  const idx = state.logs.findIndex(l => l.id === id);
+  if(idx === -1) return;
+  const item = state.logs[idx];
+  if(!confirm(`${item.ref} referansındaki ${item.serial} nolu (+${item.qty} adet) koli kaydı silinsin mi?`)) return;
+
+  state.logs.splice(idx, 1);
+  delete state.serials[item.serial];
+  committedSerialSet.delete(String(item.serial));
+
+  const arr = state.entries[item.ref] || [];
+  const eIdx = arr.findIndex(x => x.serial === item.serial);
+  if(eIdx !== -1) arr.splice(eIdx, 1);
+  if(arr.length === 0) delete state.entries[item.ref];
+
+  if(lastCommittedSerial === item.serial) lastCommittedSerial = null;
+  save(); render();
+  toast(`Kayıt silindi: ${item.serial}`);
+}
+
+function undoLast(){
+  const last = state.logs.pop();
+  if(!last){ message("Geri alınacak kayıt bulunamadı.","info"); return; }
+  delete state.serials[last.serial];
+  committedSerialSet.delete(String(last.serial));
+
+  const arr = state.entries[last.ref] || [];
+  arr.pop();
+  if(arr.length === 0) delete state.entries[last.ref];
+  lastCommittedSerial = null;
+  save(); render();
+  message(`Geri alındı: <b>${esc(last.ref)}</b> · Koli No: <b>${esc(last.serial)}</b> (-${last.qty})`,"warn");
+  speakTR(`${last.qty} adet geri alındı`, 150);
+}
+
+function resetAll(){
+  if(!confirm("Tüm sayım verileri sıfırlansın mı?")) return;
+  state = {entries:{},serials:{},planned:{},logs:[],extraRefs:[],dupBlocked:0,waybill:"",operator:"",shift:"",note:""};
+  committedSerialSet.clear();
+  clearComboBuffer();
+  lastCommittedSerial = null;
+  lastDupAlertSerial = null;
+  waybillInput.value = "";
+  operatorInput.value = "";
+  shiftInput.value = "";
+  noteInput.value = "";
+  save(); render();
+  message("Sayım verileri sıfırlandı.","info");
+}
+
+function editPlan(ref){
+  const cur = state.planned[ref] !== undefined ? state.planned[ref] : "";
+  const v = prompt(ref+" için planlanan toplam adet:",cur);
+  if(v === null) return;
+  const c = String(v).trim();
+  if(c === ""){ delete state.planned[ref]; save(); render(); return; }
+  const n = parseInt(c,10);
+  if(!isNaN(n) && n >= 0){ state.planned[ref] = n; save(); render(); }
+}
+
+function openBulkModal(){ document.getElementById("bulkModal").classList.add("open"); }
+function closeBulkModal(){ document.getElementById("bulkModal").classList.remove("open"); }
+function clearAllPlans(){ state.planned = {}; save(); render(); closeBulkModal(); }
+function applyBulkPaste(){
+  const raw = document.getElementById("bulkTextarea").value.trim();
+  if(!raw){ closeBulkModal(); return; }
+  let count = 0;
+  raw.split(/\r?\n/).forEach(line => {
+    const parts = line.trim().split(/[\t;,\s]+/);
+    if(!parts[0]) return;
+    const c = classifyBarcode(parts[0]);
+    if(c && c.type === "P"){
+      if(!allRefs().includes(c.val)) state.extraRefs.push(c.val);
+      if(parts[1]){
+        const q = parseInt(parts[1].replace(/\D/g,""), 10);
+        if(!isNaN(q) && q >= 0){ state.planned[c.val] = q; count++; }
+      }
+    }
+  });
+  document.getElementById("bulkTextarea").value = "";
+  save(); render(); closeBulkModal();
+  toast(`${count} kalem plan yüklendi`);
+}
+
+function render(){
+  const body = document.getElementById("tableBody");
+  const query = document.getElementById("searchInput").value.trim().toUpperCase();
+  const showEmpty = document.getElementById("showEmpty").checked;
+  const onlyDiff = document.getElementById("onlyDifference").checked;
+  body.innerHTML = "";
+
+  let gc=0,gp=0,pc=0,filled=0,boxes=0,complete=0;
+  const refs = allRefs();
+
+  refs.forEach((ref,idx)=>{
+    const list = state.entries[ref] || [];
+    const counted = totalBoxes(list);
+    const planned = state.planned[ref];
+    gc += counted; boxes += list.length;
+    if(list.length) filled++;
+
+    let diff = null, st = "Bekliyor", sc = "empty";
+    if(planned !== undefined){
+      gp += planned; pc++;
+      diff = counted - planned;
+      if(diff === 0 && list.length){ st="Tamam"; sc="ok"; complete++; }
+      else if(diff < 0){ st="Eksik"; sc="low"; }
+      else if(diff > 0){ st="Fazla"; sc="high"; }
+    } else if(list.length){ st="Sayıldı"; sc="ok"; }
+
+    const serialMatch = list.some(x => String(x.serial||"").includes(query));
+    if(!showEmpty && list.length === 0 && planned === undefined) return;
+    if(onlyDiff && (planned === undefined || diff === 0)) return;
+    if(query && !ref.includes(query) && !serialMatch) return;
+
+    // Tabloda barkod ID (Seri No) göstermeden sadece kutu miktarlarını listele:
+    const boxQuantitiesOnly = list.map(x => typeof x === "object" ? x.qty : x).join(" + ");
+    const planHtml = `<span class="edit-plan" onclick="editPlan('${esc(ref)}')">${planned !== undefined ? planned : "—"}</span>`;
+    let diffHtml = "—";
+    if(diff !== null) diffHtml = diff===0?`<span class="green">0</span>`:(diff<0?`<span class="red">${diff}</span>`:`<span class="orange">+${diff}</span>`);
+
+    const row = document.createElement("tr");
+    if(list.length) row.classList.add("done");
+    row.innerHTML = `
+      <td>${idx+1}</td>
+      <td class="ref">${esc(ref)}</td>
+      <td class="qty-list">${boxQuantitiesOnly || "—"}</td>
+      <td class="number">${list.length ? list.length : "—"}</td>
+      <td class="number">${list.length ? counted : "—"}</td>
+      <td>${planHtml}</td>
+      <td class="number">${diffHtml}</td>
+      <td><span class="status ${sc}">${st}</span></td>`;
+    body.appendChild(row);
+  });
+
+  document.getElementById("headRefs").textContent = refs.length;
+  document.getElementById("headBoxes").textContent = boxes;
+  document.getElementById("headQty").textContent = gc;
+  document.getElementById("statCounted").textContent = gc;
+  document.getElementById("statFilled").textContent = filled;
+  document.getElementById("statBoxes").textContent = boxes;
+  document.getElementById("statDupBlocked").textContent = state.dupBlocked || 0;
+
+  const ps = document.getElementById("statPlanned"), ds = document.getElementById("statDiff");
+  const pw = document.getElementById("progressWrap");
+  if(pc > 0){
+    ps.textContent = gp;
+    const net = gc - gp;
+    ds.textContent = (net>0?"+":"")+net;
+    ds.className = net===0?"green":(net<0?"red":"orange");
+    pw.classList.add("show");
+    const pct = gp > 0 ? Math.min(100, Math.round((gc / gp) * 100)) : 0;
+    document.getElementById("progressFill").style.width = pct + "%";
+    document.getElementById("progressText").textContent = `%${pct} (${gc}/${gp})`;
+  }else{
+    ps.textContent="—"; ds.textContent="—"; pw.classList.remove("show");
+  }
+
+  document.getElementById("tableInfo").textContent = `${filled} referans · ${boxes} koli`;
+
+  const logList = document.getElementById("logList");
+  document.getElementById("logCount").textContent = state.logs.length + " kayıt";
+  if(state.logs.length === 0){
+    logList.innerHTML = `<div style="padding:10px 12px;color:var(--muted);font-size:12px">Henüz okutma yapılmadı.</div>`;
+  }else{
+    logList.innerHTML = state.logs.slice(-20).reverse().map(l => `
+      <div class="log-item">
+        <span><b style="color:#93c5fd">${esc(l.time)}</b> · <b>${esc(l.ref)}</b> · Koli: <b style="color:#cbd5e1">${esc(l.serial)}</b> &rarr; <b class="green">+${l.qty}</b></span>
+        <button class="log-del" onclick="deleteLogItem(${l.id})">Sil</button>
+      </div>
+    `).join("");
+  }
+}
+
+/* RAPOR VE EXCEL VERİSİ (BARKOD SERİ NO OLMADAN SADECE MİKTARLAR) */
+function buildReport(){
+  const includeEmpty = document.getElementById("includeEmpty").checked;
+  const rows = [];
+  const t = {refs:0,filled:0,boxes:0,counted:0,planned:0,plannedRows:0};
+
+  allRefs().forEach(ref=>{
+    const list = state.entries[ref] || [];
+    const counted = totalBoxes(list);
+    const planned = state.planned[ref];
+    const hasPlan = planned !== undefined;
+    const hasData = list.length > 0;
+    if(!hasData && !hasPlan && !includeEmpty) return;
+
+    t.refs++;
+    if(hasData){ t.filled++; t.boxes += list.length; }
+    t.counted += counted;
+
+    let diff = null, status = hasData ? "SAYILDI" : "OKUTULMADI";
+    if(hasPlan){
+      t.planned += planned; t.plannedRows++;
+      diff = counted - planned;
+      status = diff === 0 ? "TAMAM" : (diff < 0 ? "EKSİK" : "FAZLA");
+    }
+    rows.push({
+      seq: rows.length+1,
+      ref,
+      parts: list.map(x => typeof x === "object" ? x.qty : x).join(" + "),
+      boxCount: list.length,
+      counted: hasData ? counted : "",
+      planned: hasPlan ? planned : "",
+      diff: diff === null ? "" : diff,
+      status
+    });
+  });
+  return {rows, totals:t, generatedAt:new Date()};
+}
+function diffText(d){ return d===""?"":(d===0?"0":(d>0?"+"+d:String(d))); }
+
+function buildReportHtml(rep){
+  const t = rep.totals;
+  const net = t.counted - t.planned;
+  const metaParts = [];
+  if(state.waybill) metaParts.push(`<span>İrsaliye No: <b>${esc(state.waybill)}</b></span>`);
+  if(state.operator) metaParts.push(`<span>Personel: <b>${esc(state.operator)}</b></span>`);
+  if(state.shift) metaParts.push(`<span>Vardiya: <b>${esc(state.shift)}</b></span>`);
+  if(state.note) metaParts.push(`<span>Not: <b>${esc(state.note)}</b></span>`);
+
+  const body = rep.rows.map(r=>`
+    <tr>
+      <td class="num">${r.seq}</td>
+      <td class="mono">${esc(r.ref)}</td>
+      <td class="mono">${esc(r.parts)||"—"}</td>
+      <td class="num">${r.boxCount||"—"}</td>
+      <td class="num">${r.counted===""?"—":r.counted}</td>
+      <td class="num">${r.planned===""?"—":r.planned}</td>
+      <td class="num">${r.diff===""?"—":diffText(r.diff)}</td>
+      <td><b>${r.status}</b></td>
+    </tr>`).join("");
+
+  return `
+  <div class="report">
+    <div class="rep-top">
+      <h1>${esc(REPORT_TITLE)}</h1>
+      <div>${rep.generatedAt.toLocaleString("tr-TR")}</div>
+    </div>
+    ${metaParts.length ? `<div class="rep-meta">${metaParts.join("")}</div>` : ""}
+    <div class="rep-sum">
+      <span>Referans Kalemi: <b>${t.filled}</b></span>
+      <span>Toplam Koli: <b>${t.boxes}</b></span>
+      <span>Sayılan Toplam Adet: <b>${t.counted}</b></span>
+      ${t.plannedRows?`<span>Planlanan: <b>${t.planned}</b></span><span>Fark: <b>${diffText(net)}</b></span>`:""}
+    </div>
+    <table>
+      <thead><tr>
+        <th style="width:5%">#</th>
+        <th style="width:17%">Referans</th>
+        <th>Kutu Miktarları</th>
+        <th style="width:8%">Koli</th>
+        <th style="width:10%">Sayılan</th>
+        <th style="width:10%">Planlanan</th>
+        <th style="width:8%">Fark</th>
+        <th style="width:11%">Durum</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+      ${t.refs ? `<tfoot><tr class="totals">
+        <td colspan="3">GENEL TOPLAM</td>
+        <td class="num">${t.boxes}</td>
+        <td class="num">${t.counted}</td>
+        <td class="num">${t.plannedRows ? t.planned : "—"}</td>
+        <td class="num">${t.plannedRows ? diffText(net) : "—"}</td>
+        <td></td>
+      </tr></tfoot>` : ""}
+    </table>
+    <div class="sign">
+      <div>Sayım Yapan${state.operator ? `<br><small>${esc(state.operator)}</small>` : ""}</div>
+      <div>Kontrol Eden</div>
+      <div>Teslim Alan</div>
+    </div>
+  </div>`;
+}
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for(let i=0;i<256;i++){ let c=i; for(let k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); t[i]=c>>>0; }
+  return t;
+})();
+function crc32(b){ let c=0xFFFFFFFF; for(let i=0;i<b.length;i++) c=CRC_TABLE[(c^b[i])&0xFF]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+
+function buildNativeXlsx(aoa, colWidths){
+  const enc = new TextEncoder();
+  const colLetter = n => { let s=""; while(n>=0){ s=String.fromCharCode((n%26)+65)+s; n=Math.floor(n/26)-1; } return s; };
+  const colsXml = colWidths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("");
+  const rowsXml = aoa.map((row, rIdx) => {
+    const rNum = rIdx + 1;
+    const cells = row.map((val, cIdx) => {
+      if(val === "" || val === null || val === undefined) return "";
+      const ref = colLetter(cIdx) + rNum;
+      if(typeof val === "number" && isFinite(val)) return `<c r="${ref}"><v>${val}</v></c>`;
+      return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${esc(val)}</t></is></c>`;
+    }).join("");
+    return `<row r="${rNum}">${cells}</row>`;
+  }).join("");
+
+  const files = [
+    {name:"[Content_Types].xml", content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`},
+    {name:"_rels/.rels", content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+    {name:"xl/workbook.xml", content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sayim_Raporu" sheetId="1" r:id="rId1"/></sheets></workbook>`},
+    {name:"xl/_rels/workbook.xml.rels", content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`},
+    {name:"xl/worksheets/sheet1.xml", content:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${colsXml}</cols><sheetData>${rowsXml}</sheetData></worksheet>`}
+  ];
+
+  const localParts = [], cdParts = [];
+  let offset = 0;
+  files.forEach(f => {
+    const nb = enc.encode(f.name), db = enc.encode(f.content), crc = crc32(db), sz = db.length;
+    const lh = new Uint8Array(30 + nb.length), lv = new DataView(lh.buffer);
+    lv.setUint32(0,0x04034b50,true); lv.setUint16(4,20,true); lv.setUint16(6,0x0800,true);
+    lv.setUint32(14,crc,true); lv.setUint32(18,sz,true); lv.setUint32(22,sz,true); lv.setUint16(26,nb.length,true);
+    lh.set(nb, 30);
+    const cd = new Uint8Array(46 + nb.length), cv = new DataView(cd.buffer);
+    cv.setUint32(0,0x02014b50,true); cv.setUint16(4,20,true); cv.setUint16(6,20,true); cv.setUint16(8,0x0800,true);
+    cv.setUint32(16,crc,true); cv.setUint32(20,sz,true); cv.setUint32(24,sz,true); cv.setUint16(28,nb.length,true); cv.setUint32(42,offset,true);
+    cd.set(nb, 46);
+    localParts.push(lh, db); cdParts.push(cd); offset += lh.length + sz;
+  });
+  const cdSize = cdParts.reduce((a,b)=>a+b.length,0), eocd = new Uint8Array(22), ev = new DataView(eocd.buffer);
+  ev.setUint32(0,0x06054b50,true); ev.setUint16(8,files.length,true); ev.setUint16(10,files.length,true);
+  ev.setUint32(12,cdSize,true); ev.setUint32(16,offset,true);
+  return new Blob([...localParts, ...cdParts, eocd], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+
+function fileStamp(pfx){
+  const d=new Date(),p=n=>String(n).padStart(2,"0");
+  return `${pfx}_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+
+function generateExcelBlob(){
+  const rep = buildReport();
+  const t = rep.totals;
+  const aoa = [["#","Referans","Kutu Miktarları","Koli Sayısı","Sayılan Adet","Planlanan","Fark","Durum"]];
+  rep.rows.forEach(r=>aoa.push([r.seq,r.ref,r.parts,r.boxCount,r.counted,r.planned,r.diff,r.status]));
+  if(t.refs){
+    aoa.push([]);
+    aoa.push(["","","GENEL TOPLAM",t.boxes,t.counted,t.plannedRows?t.planned:"",t.plannedRows?diffText(t.counted-t.planned):"",""]);
+  }
+  return { blob: buildNativeXlsx(aoa, [5,18,36,11,12,11,9,12]), fileName: fileStamp("Malzeme_Sayim_Raporu")+".xlsx", rep };
+}
+
+function exportExcel(){
+  const { blob, fileName } = generateExcelBlob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = fileName; a.click();
+  toast("Excel dosyası indirildi");
+}
+
+async function shareExcelMobile(){
+  const { blob, fileName, rep } = generateExcelBlob();
+  const file = new File([blob], fileName, {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({title:"Malzeme Sayım Raporu", text:`Toplam ${rep.totals.boxes} koli, ${rep.totals.counted} adet.`, files:[file]}); return; }catch(e){}
+  }
+  exportExcel();
+}
+
+function printReport(){
+  const rep = buildReport();
+  document.getElementById("printReport").innerHTML = buildReportHtml(rep);
+  closePreview();
+  window.print();
+}
+function openPreview(){
+  document.getElementById("previewPaper").innerHTML = buildReportHtml(buildReport());
+  document.getElementById("previewOverlay").classList.add("open");
+}
+function closePreview(){ document.getElementById("previewOverlay").classList.remove("open"); }
+
+function exportBackup(){
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fileStamp("Sayim_Yedek")+".json"; a.click();
+}
+function importBackup(ev){
+  const f = ev.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try{
+      state = Object.assign(loadState(), JSON.parse(e.target.result));
+      committedSerialSet.clear();
+      Object.keys(state.serials || {}).forEach(s => committedSerialSet.add(String(s)));
+      waybillInput.value = state.waybill || "";
+      operatorInput.value = state.operator || "";
+      shiftInput.value = state.shift || "";
+      noteInput.value = state.note || "";
+      save(); render(); toast("Yedek yüklendi");
+    }catch(err){}
+  };
+  r.readAsText(f);
+}
+
+[waybillInput, operatorInput, shiftInput, noteInput].forEach(el => {
+  el.addEventListener("input", () => {
+    state.waybill = waybillInput.value;
+    state.operator = operatorInput.value;
+    state.shift = shiftInput.value;
+    state.note = noteInput.value;
+    save();
+  });
+});
+
+scanInput.addEventListener("keydown", e => {
+  if(e.key === "Enter"){
+    e.preventDefault();
+    const raw = scanInput.value.trim();
+    scanInput.value = "";
+    if(raw) ingestDetections(raw.split(/[\s,;]+/), true);
+  }
+});
+
+setInterval(()=>{ document.getElementById("clock").textContent = new Date().toLocaleTimeString("tr-TR"); },1000);
+document.getElementById("soundButton").textContent = VOL_LEVELS[volIndex].label;
+document.getElementById("voiceButton").textContent = voiceEnabled ? "Sesli Okuma: Açık" : "Sesli Okuma: Kapalı";
+waybillInput.value = state.waybill || "";
+operatorInput.value = state.operator || "";
+shiftInput.value = state.shift || "";
+noteInput.value = state.note || "";
+render();
+</script>
+</body>
+</html>
